@@ -1,0 +1,41 @@
+name: Build XcX Executor (v2 - Python only)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip if needed
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "main.py")) {
+            $z = Get-ChildItem -Filter "*.zip" | Select-Object -First 1
+            if ($z) {
+              Expand-Archive -Path $z.FullName -DestinationPath "." -Force
+              $sub = Get-ChildItem -Directory | Where-Object { Test-Path "$($_.FullName)\main.py" } | Select-Object -First 1
+              if ($sub) { Copy-Item -Recurse -Force "$($sub.FullName)\*" "."; Remove-Item -Recurse -Force $sub.FullName }
+            } else { echo "ERROR: no main.py"; exit 1 }
+          }
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install pyinstaller pywin32 requests
+
+      - name: Build EXE
+        run: pyinstaller --onefile --noconsole --name "RbxExecutor" main.py
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: XcX-Executor-v2
+          path: dist\RbxExecutor.exe
+          retention-days: 30
